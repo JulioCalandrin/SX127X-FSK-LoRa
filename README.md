@@ -2,10 +2,9 @@
 
 <!---Esses são exemplos. Veja https://shields.io para outras pessoas ou para personalizar este conjunto de escudos. Você pode querer incluir dependências, status do projeto e informações de licença aqui--->
 
-![GitHub repo size](https://img.shields.io/github/repo-size/iuricode/README-template?style=for-the-badge)
-![GitHub language count](https://img.shields.io/github/languages/count/iuricode/README-template?style=for-the-badge)
+![GitHub repo size](https://img.shields.io/github/repo-size/JulioCalandrin/SX127X-FSK-LoRa)
 
-This is a *FSK* library for interfacing the SX1276 radio module from Semtech with STM32 microcontrolers. Currently it only supports FSK but I will soon glue together the LoRa code I have laying around in my computer.
+This is a FSK library for interfacing the SX1276 radio module from Semtech with STM32 microcontrolers. Currently it only supports FSK but I will soon glue together the LoRa code I have laying around in my computer.
 
 This library is not finished, use with caution, but at least all available functions have been fully tested on a 2AD66 G-NiceRF module.
 
@@ -20,7 +19,7 @@ As said before, I will add LoRa soon, among with other items:
 
 * FSK:
 - [ ] Optmize dynamic receive/transmitt functions for higher bitrates.
-- [ ] 
+- [ ] Add remaining configuraton options
 
 ## How to use it:
 
