@@ -1,0 +1,33 @@
+------- Post-It -------
+
+This is where I keep some notes
+about the tasks I'm doing in
+the library.
+
+-----------------------
+
+To-Do:
+
+- Bandwidths should be typedefs (or not? Think about it)
+- Remove unecessary macros and turn them into regular Masks (some lost on OCP and others on LoRa config)
+- Remove magic numbers from bandwidths functions
+- Optmize dynamic receive/transmitt functions for higher bitrates.
+- Add remaining configuraton options.
+- Create Enable/Disable functions for CRC Autoclear.
+- Create Enable/Disable functions for Auto Restart RX.
+- Create Enable/Disable functions for LNA Boost.
+- Remove Magic Numbers from the PreambleDetector config.
+- Remove Magic Numbers from DIO function selection.
+- Go over the entire LoRa library to make it more like the FSK one.
+- Add Implicit header mode in LoRa.
+
+Make universal:
+
+- Frequency ✓
+- LNA ✓
+- OCP ✓
+- Power ✓
+- PaRamp ✓
+- OpMode ✓
+- DIO ✓
+- AGC - * Some registers are shared and others are not, kill me * - Do it later

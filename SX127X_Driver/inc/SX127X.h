@@ -24,16 +24,10 @@
 #include <stdlib.h>
 
 /*
- * register address
+ * Mutual register addresses
  */
 #define SX127X_REG_FIFO             		(uint8_t)0x00
 #define SX127X_REG_OP_MODE          		(uint8_t)0x01
-
-#define FSK_REG_BITRATE_MSB		   		(uint8_t)0x02
-#define FSK_REG_BITRATE_LSB     	  			(uint8_t)0x03
-#define FSK_REG_FDEV_MSB						(uint8_t)0x04
-#define FSK_REG_FDEV_LSB						(uint8_t)0x05
-
 #define SX127X_REG_FRF_MSB						(uint8_t)0x06	// RF carrier Frequency MSB
 #define SX127X_REG_FRF_MID			 			(uint8_t)0x07	// RF carrier Frequency MID
 #define SX127X_REG_FRF_LSB						(uint8_t)0x08	// RF carrier Frequency LSB
@@ -41,14 +35,132 @@
 #define SX127X_REG_PA_RAMP						(uint8_t)0x0A	// Power Amplifier ramp up/down time
 #define SX127X_REG_OCP		   				(uint8_t)0x0B	// Over Current Protection Configuration
 #define SX127X_REG_LNA	 						(uint8_t)0x0C	// Low-Noise Amplifier Configuration
+#define SX127X_REG_DIO_MAPPING_1				(uint8_t)0x40
+#define SX127X_REG_DIO_MAPPING_2				(uint8_t)0x41
+#define SX127X_REG_VERSION						(uint8_t)0x42	// Semtech ID relating the silicon revision
+#define SX127X_REG_TCXO							(uint8_t)0x4B	// TCXO or XTAL input setting
 #define SX127X_REG_PA_DAC           		(uint8_t)0x4D 	// High power settings of the Power Amplifier
+#define SX127X_REG_FORMER_TEMP				(uint8_t)0x5B	// Stored temperature during the former IQ Calibration
+#define SX127X_REG_AGC_REF						(uint8_t)0x61	// Adjustment of the AGC thresholds
+#define SX127X_REG_AGC_THRESH1				(uint8_t)0x62	// Adjustment of the AGC thresholds
+#define SX127X_REG_AGC_THRESH2				(uint8_t)0x63	// Adjustment of the AGC thresholds
+#define SX127X_REG_AGC_THRESH3				(uint8_t)0x64	// Adjustment of the AGC thresholds
+#define SX127X_REG_PLL							(uint8_t)0x70	// Control of the PLL bandwidth
+
+
+/*
+ * LoRa register addresses
+ */
+
+#define LORA_REG_FIFO_ADDR_PTR			0x0D	// SPI Interface FIFO Pointer
+#define LORA_REG_FIFO_TX_BASE_ADDR		0x0E	// Base address for TX writing on FIFO
+#define LORA_REG_FIFO_RX_BASE_ADDR		0x0F	// Base address for RX reading on FIFO
+#define LORA_REG_FIFO_RX_CURRENT_ADDR	0x10	// Address of last packet received
+#define LORA_REG_IRQ_FLAGS_MASK			0x11	// Interrupt Request Flags Mask
+#define LORA_REG_IRQ_FLAGS					0x12	// Interrupt Request Flags
+#define LORA_REG_RX_NB_BYTES				0x13	// Number of received bytes
+#define LORA_REG_RX_HEADER_CNT_MSB		0x14	// Number of valid headers received since last transition into Rx mode MSB
+#define LORA_REG_RX_HEADER_CNT_LSB		0x15	// Number of valid headers received since last transition into Rx mode LSB
+#define LORA_REG_RX_PACKET_CNT_MSB		0x16	// Number of valid packets received since last transition into Rx mode MSB
+#define LORA_REG_RX_PACKET_CNT_LSB		0x17	// Number of valid packets received since last transition into Rx mode LSB
+#define LORA_REG_MODEM_STAT				0x18	// Modem status
+#define LORA_REG_PKT_SNR_VALUE			0x19	// Last Packet Signal-to-Noise Ratio
+#define LORA_REG_PKT_RSSI_VALUE			0x1A	// Last Packet Received Signal Strength Indicator
+#define LORA_REG_RSSI_VALUE				0x1B	// Current Received Signal Strength Indicator
+#define LORA_REG_HOP_CHANNEL				0x1C	// FHSS start channel
+#define LORA_REG_MODEM_CONFIG_1			0x1D	// Modem Configuration 1
+#define LORA_REG_MODEM_CONFIG_2			0x1E	// Modem Configuration 2
+#define LORA_REG_SYMB_TIMEOUT_LSB		0x1F	// Receiver timeout LSB. MSBs are in Modem Config
+#define LORA_REG_PREAMBLE_MSB				0x20	// Preamble size MSB
+#define LORA_REG_PREAMBLE_LSB				0x21	// Preamble size MSB
+#define LORA_REG_PAYLOAD_LENGTH			0x22	// Payload Lenght
+#define LORA_REG_MAX_PAYLOAD_LENGTH		0x23	// Maximum Payload Lenght
+#define LORA_REG_HOP_PERIOD				0x24	// FHSS HOP Period
+#define LORA_REG_FIFO_RX_BYTE_ADDR		0x25	// Address of last byte written in FIFO
+#define LORA_REG_MODEM_CONFIG_3			0x26	// Modem Configuration 3
+#define LORA_REG_FREQ_ERROR_MSB			0x28	// Estimated frequency error MSB
+#define LORA_REG_FREQ_ERROR_MID			0x29	// Estimated frequency error MID
+#define LORA_REG_FREQ_ERROR_LSB			0x2A	// Estimated frequency error LSB
+#define LORA_REG_RSSI_WIDEBAND			0x2C	// Wideband RSSI measurement
+#define LORA_REG_LF_FREQ_1					0x2F	// Optimize receiver
+#define LORA_REG_LF_FREQ_2					0x30	// Optimize receiver
+#define LORA_REG_DETECTION_OPTIMIZE		0x31	// Detection Optimize for Spreading Factor 6
+#define LORA_REG_INVERTIQ					0x33	// Invert LoRa I and Q signals
+#define LORA_REG_HIGH_BW_OPTIMIZE1		0x36	// Sensitivity optimization for 500 kHz bandwidth
+#define LORA_REG_DETECTION_THRESHOLD	0x37	// Detection Threshold for Spreading Factor 6
+#define LORA_REG_SYNC_WORD					0x39	// Sync Word
+#define LORA_REG_HIGH_BW_OPTIMIZE2		0x3A	// Sensitivity optimization for 500 kHz bandwidth
+#define LORA_REG_INVERTIQ2					0x3B	// Optimize for inverted IQ
+
+/* LoRa Operation Modes (section 4.1.3) */
+#define LoRa_LOW_FREQ_MODE				0x08
+#define LoRa_get_MODE(reg_val)			(reg_val&0b10000111)
+#define LoRa_MODE_SLEEP					0x80
+#define LoRa_MODE_STANDBY				0x81
+#define LoRa_MODE_FSTX					0x82
+#define LoRa_MODE_TX						0x83
+#define LoRa_MODE_FSRX					0x84
+#define LoRa_MODE_RX_CONT				0x85
+#define LoRa_MODE_RX_SINGLE				0x86
+#define LoRa_MODE_CAD					0x87
+
+/* LoRa Cyclic Redundancy Check (CRC) */
+#define LoRa_CRC_SET(reg_val)			(reg_val|0x04)
+#define LoRa_CRC_RESET(reg_val)			(reg_val&0xFB)
+
+/* LoRa Low Data Rate Optimize */
+#define LoRa_LDO_SET(reg_val)			(reg_val|0b00001000)
+#define LoRa_LDO_RESET(reg_val)			(reg_val&0b11110111)
+
+/* LoRa Spreading Factor (section 4.1.1.2) */
+#define LoRa_set_SF(reg_val, sf)			((reg_val&0x0F)|((sf<<4)&0xF0))
+
+/* LoRa Power Amplifier (section 5.4.1 and 5.4.2)*/
+#define LoRa_PA_RFO_PIN					0x70
+#define LoRa_PA_BOOST_PIN				0x80
+
+/* LoRa Over Current Protection (section 5.4.4) */
+#define LoRa_OCP_SET(ocp_trim)			(0x20|(0x1F & ocp_trim))
+#define LoRa_OCP_RESET					0x00
+
+/* LoRa Coding Rate (section 4.1.1.3) */
+#define LoRa_set_CR(reg_val, cr)			((reg_val&0xF1)|cr)
+#define LoRa_CR_4_5						0x02
+#define LoRa_CR_4_6						0x04
+#define LoRa_CR_4_7						0x06
+#define LoRa_CR_4_8						0x08
+	
+/* LoRa Header Modes (section 4.1.1.6) */
+#define LoRa_EXPLICIT(reg_val)			(reg_val & 0b11111110)
+#define LoRa_IMPLICIT(reg_val)			(reg_val | 0b00000001)
+
+/* LoRa DIO LoRa Mapping (section 4.1.6.1) */
+#define LoRa_RXDONE						0x00
+#define LoRa_TXDONE						0x40
+
+/* LoRa Idle config (section 4.2.8.2) */
+#define LoRa_REG_SEQ_CONFIG_1			0x36
+
+/* Macros */
+#define LoRa_IGNORE_RESET_PIN			0xFFFF	// Use this in init to ignore reset pin
+#define LoRa_TIMEOUT						100
+
+
+
+/*
+ * FSK register addresses
+ */
+#define FSK_REG_BITRATE_MSB		   		(uint8_t)0x02
+#define FSK_REG_BITRATE_LSB     	  			(uint8_t)0x03
+#define FSK_REG_FDEV_MSB						(uint8_t)0x04
+#define FSK_REG_FDEV_LSB						(uint8_t)0x05
 
 #define FSK_REG_RX_CONFIG	 					(uint8_t)0x0D	// RX configuration
 #define FSK_REG_RSSI_CONFIG	 				(uint8_t)0x0E	// RSSI configuration
 #define FSK_REG_RSSI_VALUE						(uint8_t)0x11
 #define FSK_REG_RX_BW							(uint8_t)0x12	// Rx Bandwidth Configuration - Check page 88
 #define FSK_REG_AFC_BW							(uint8_t)0x13 	// Automatic Frequency Correction Bandwidth Configuration
-#define FSK_REG_PREAMBLE_DETECT					(uint8_t)0x1F	// Preamble Detector Settings
+#define FSK_REG_PREAMBLE_DETECT				(uint8_t)0x1F	// Preamble Detector Settings
 #define FSK_REG_PREAMBLE_LEN_MSB				(uint8_t)0x25	// Preamble Length Configuration MSB
 #define FSK_REG_PREAMBLE_LEN_LSB				(uint8_t)0x26 	// Preamble Length Configuration LSB
 
@@ -77,9 +189,6 @@
 
 #define FSK_REG_BITRATE_FRAC           	(uint8_t)0x5D
 
-#define SX127X_REG_DIO_MAPPING_1				(uint8_t)0x40
-#define SX127X_REG_DIO_MAPPING_2				(uint8_t)0x41
-
 #define FSK_REG_PA_DAC							(uint8_t)0x4D
 
 /*
@@ -101,16 +210,6 @@
 #define FSK_IRQ2_PAYLOAD_READY             (uint8_t)0b00000100
 #define FSK_IRQ2_CRC_OK                    (uint8_t)0b00000010
 #define FSK_IRQ2_LOW_BAT                   (uint8_t)0b00000001
-
-
-/*
- * Other config masks
- */
-#define FSK_SYNC_ON                        (uint8_t)0b00010000
-//#define FSK_TX_START_CONDITION             (uint8_t)0b10000000 // Era usado na função FSK_Transmit
-
-#define FSK_MODE_READY                     (uint8_t)0b10000000
-#define FSK_FSTEP						   			61            // Defined by: FSTEP = FXOSC/(2^19)  See section 4.1.4 
 
 
 /*
@@ -154,9 +253,8 @@ typedef struct {
 #define FSK_BITRATE_300_KBPS 			(FSK_Bitrate_t){299065, 0x006B} 
 
 /*
- * FSK RxBw
+ * FSK Rx Bandwidths
  */
-
 #define FSK_BW_2_6_KHZ						(uint8_t)0b00010111
 #define FSK_BW_3_1_KHZ						(uint8_t)0b00001111
 #define FSK_BW_3_9_KHZ						(uint8_t)0b00000111
@@ -181,9 +279,29 @@ typedef struct {
 
 #define SX127X_TIMEOUT						(uint8_t)100
 
+
+/*
+ * LoRa Bandwidths (section 4.1.1.4)
+ */ 
+#define LoRa_BW_CLR(reg_val)			(reg_val&0x0F)
+#define LoRa_BW_MASK(reg_val)			(reg_val&0xF0)
+#define LoRa_BW_7_8						(uint8_t)0x00	// 7.8 kHz
+#define LoRa_BW_10_4					(uint8_t)0x10	// 10.4 kHz
+#define LoRa_BW_15_6					(uint8_t)0x20	// 15.6 kHz
+#define LoRa_BW_20_8					(uint8_t)0x30	// 20.8 kHz
+#define LoRa_BW_31_25					(uint8_t)0x40	// 31.25 kHz
+#define LoRa_BW_41_7					(uint8_t)0x50	// 41.7 kHz
+#define LoRa_BW_62_5					(uint8_t)0x60	// 62.5 kHz
+#define LoRa_BW_125						(uint8_t)0x70	// 125 kHz
+#define LoRa_BW_250						(uint8_t)0x80	// 250 kHz
+#define LoRa_BW_500						(uint8_t)0x90	// 500 kHz
+
+
 /*
  * New Masks
  */
+
+// Universal:
 #define SX127X_OP_MODE_MASK             	(uint8_t)0b11111000
 #define SX127X_FSK_OOK_MODE_MASK  			(uint8_t)0b00011111
 #define SX127X_LORA_MODE_MASK		     	(uint8_t)0b01111111
@@ -192,6 +310,10 @@ typedef struct {
 #define SX127X_LNA_GAIN_MASK				(uint8_t)0b00011111
 #define SX127X_PA_SELECT_MASK				(uint8_t)0b01111111
 
+// LoRa:
+
+
+// FSK:
 #define FSK_AUTO_RESTART_RX_MASK			(uint8_t)0b00111111
 #define FSK_PREAMBLE_POLARITY_MASK 			(uint8_t)0b11011111
 #define FSK_PREAMBLE_DETECTOR_MASK 			(uint8_t)0b01111111
@@ -211,6 +333,14 @@ typedef struct {
 #define FSK_MODULATION_SHAPING_MASK			(uint8_t)0b10011111
 #define FSK_PA_RAMP_MASK					(uint8_t)0b11110000
 #define FSK_FIFO_THRESHOLD_MASK				(uint8_t)0b11000000
+
+/*
+ * Other config masks
+ */
+#define FSK_SYNC_ON                        (uint8_t)0b00010000
+#define FSK_MODE_READY                     (uint8_t)0b10000000
+#define FSK_FSTEP						   			61            // Defined by: FSTEP = FXOSC/(2^19)  See section 4.1.4 
+
 
 /*
  * New Defines
@@ -500,8 +630,7 @@ typedef struct{
 	 * General Configuration:
 	 */
 
-	// Frequencies and bitrate
-	long Frequency;
+	// Frequencie deviation and bitrate
 	uint32_t FrequencyDeviation;
 	FSK_Bitrate_t Bitrate;
 
@@ -528,7 +657,6 @@ typedef struct{
 	// Modifications:
 	Encoding_t Encoding; // (0 -> None, 1 -> Manchester, 2 -> Whitenning)
 	FSK_DataShaping_t DataShaping; // Gaussian filters values
-	PaRampTime_t PaRampTime; // Rise/Fall time of ramp up/down in FSK
 
 	/*
 	 * RX Specific Configuration:
@@ -555,10 +683,6 @@ typedef struct{
 	uint8_t NodeAdress;
 	uint8_t BroadcastAddress;
 
-	// Receiver Gain Config:
-	LnaGain_t LnaGain;
-	bool LnaBoost; // (0 -> Default LNA current, 1 -> Boost on, 150% LNA current)
-
 	// RSSI Stuff
 	int8_t RssiOffset; // Signed RSSI offset, to compensate for the possible losses/gains in the front-end (LNA, SAW filter...) 1dB / LSB, 2’s complement format
 	RssiSmoothing_t RssiSmoothing;
@@ -566,29 +690,8 @@ typedef struct{
 	// FIFO Stuff
 	uint8_t FifoThreshold;
 
-	/*
-	 * TX Specific Configuration:
-	 */
-
-	// TX Power
-	PaSelect_t PaSelect;
-	uint8_t TxPower;
-	//uint8_t PaOutPin; // ????? I think this one was a blip
-
-	// DIO pins
-	uint8_t DioMapping1;
-	uint8_t DioMapping2;
-	/*
-   DIO0_Functions_t DIO0Function;
-   DIO1_Functions_t DIO1Function;
-   DIO2_Functions_t DIO2Function;
-   DIO3_Functions_t DIO3Function;
-   DIO4_Functions_t DIO4Function;
-   DIO5_Functions_t DIO5Function;
-	 */
 
 	// TO DO:
-
 	//bool BeaconMode; // (0 -> Off, 1 -> On) (Bacon, hummmm ~~~~)
 
 	// PLL Bandwidth (have no idea how to use this:D)
@@ -604,6 +707,19 @@ typedef struct{
 
 }FSKConfig_t;
 
+typedef struct{
+	
+	// Base addresses:
+	uint8_t RxFifoBaseAddress;
+	uint8_t TxFifoBaseAddress;
+
+	// Bandwidth:
+	uint8_t Bandwidth;
+
+
+
+
+}LoRaConfig_t;
 
 typedef struct{
 
@@ -627,9 +743,38 @@ typedef struct{
 	OperationMode_t Current_Op_Mode;
 	//PacketInfo_t PacketInfo; // This one contains the packet array pointer, as well as its size (etc?).
 
-	// Configurations:
+	// ------- General Configurations  ------- // (Same registers on LoRa and FSK):
+	
+	// Frequency:
+	long Frequency;
+
+	// Over current protection:
+	uint16_t OcpCurrent;
+
+	// Receiver Gain Config:
+	LnaGain_t LnaGain;
+	bool LnaBoost; // (0 -> Default LNA current, 1 -> Boost on, 150% LNA current)
+
+	// TX Power
+	PaSelect_t PaSelect;
+	uint8_t TxPower;
+	PaRampTime_t PaRampTime; // Rise/Fall time of ramp up/down
+
+	// DIO pins
+	uint8_t DioMapping1;
+	uint8_t DioMapping2;
+	/*
+   DIO0_Functions_t DIO0Function;
+   DIO1_Functions_t DIO1Function;
+   DIO2_Functions_t DIO2Function;
+   DIO3_Functions_t DIO3Function;
+   DIO4_Functions_t DIO4Function;
+   DIO5_Functions_t DIO5Function;
+	 */
+
+	// ------- Specific Configurations  ------- //
 	FSKConfig_t FSK_Config;
-	//LoRaConfig_t LoRa_Config;
+	LoRaConfig_t LoRa_Config;
 
 }SX127X_t;
 
@@ -651,6 +796,9 @@ HAL_StatusTypeDef SX127X_set_lna_gain(SX127X_t *SX127X, LnaGain_t LnaGain);
 HAL_StatusTypeDef SX127X_set_lna_boost(SX127X_t *SX127X, bool LnaBoost);
 HAL_StatusTypeDef SX127X_set_bits(SX127X_t *SX127X, uint8_t Reg, uint8_t Mask);
 HAL_StatusTypeDef SX127X_clear_bits(SX127X_t *SX127X, uint8_t Reg, uint8_t Mask);
+HAL_StatusTypeDef SX127X_set_DIO_mapping(SX127X_t *SX127X, uint8_t DIOMapping1, uint8_t DIOMapping2);
+
+
 /*
  * FSK init functions
  */
@@ -662,9 +810,6 @@ HAL_StatusTypeDef FSK_init(SX127X_t *SX127X);
 HAL_StatusTypeDef FSK_WriteToFIFO(SX127X_t *SX127X, uint8_t *Data, uint8_t PayloadLenght);
 HAL_StatusTypeDef FSK_ReadFromFIFO(SX127X_t *SX127X, uint8_t *Packet, uint8_t Length);
 
-
-
-
 /*
  * FSK status functions
  */
@@ -675,10 +820,10 @@ bool FSK_CheckPayloadReady(SX127X_t *SX127X);
 /*
  * FSK Transmit and Receive function
  */
-HAL_StatusTypeDef FSK_Transmit(SX127X_t *SX127X, uint8_t PayloadLength, uint8_t *Data);
-HAL_StatusTypeDef FSK_BigTransmit(SX127X_t *SX127X, uint8_t PayloadLength, uint8_t *Data);
-HAL_StatusTypeDef FSK_ReadPacket(SX127X_t *SX127X, uint8_t *Packet, uint8_t MaximumLength ,uint8_t *PacketLength, bool *CRCStatus);
-HAL_StatusTypeDef FSK_ReceivePacket(SX127X_t *SX127X, uint8_t *Packet, uint8_t MaximumLength, uint8_t *PacketLength, bool *CRCStatus);
+HAL_StatusTypeDef FSK_Transmit(SX127X_t *SX127X, uint8_t *Data, uint8_t PayloadLength);
+HAL_StatusTypeDef FSK_BigTransmit(SX127X_t *SX127X, uint8_t *Data, uint8_t PayloadLength);
+HAL_StatusTypeDef FSK_ReadPacket(SX127X_t *SX127X, uint8_t *Packet, uint8_t MaximumLength , uint8_t *PacketLength, bool *CrcError);
+HAL_StatusTypeDef FSK_ReceivePacket(SX127X_t *SX127X, uint8_t *Packet, uint8_t MaximumLength, uint8_t *PacketLength, bool *CrcError);
 
 /*
  * FSK config functions
@@ -703,14 +848,50 @@ HAL_StatusTypeDef FSK_set_crc_whitenning_type(SX127X_t *SX127X, CRC_WhiteningTyp
 HAL_StatusTypeDef FSK_set_crc_autoclear(SX127X_t *SX127X, bool CrcAutoclear);
 HAL_StatusTypeDef FSK_set_rssi_offset(SX127X_t *SX127X, int8_t RssiOffset);
 HAL_StatusTypeDef FSK_set_rssi_smoothing(SX127X_t *SX127X, RssiSmoothing_t RssiSmoothing);
+HAL_StatusTypeDef FSK_get_packet_rssi(SX127X_t *SX127X, uint8_t* rssi);
 HAL_StatusTypeDef FSK_set_pa_ramp_time(SX127X_t *SX127X, PaRampTime_t PaRampTime);
 HAL_StatusTypeDef FSK_set_data_shaping(SX127X_t *SX127X, FSK_DataShaping_t DataShaping);
 HAL_StatusTypeDef FSK_set_encoding(SX127X_t *SX127X, Encoding_t Encoding);
 HAL_StatusTypeDef FSK_set_auto_restart_RX(SX127X_t *SX127X, AutoRestartRX_t AutoRestartRX);
-HAL_StatusTypeDef FSK_set_DIO_mapping(SX127X_t *SX127X, uint8_t DIOMapping1, uint8_t DIOMapping2);
 HAL_StatusTypeDef FSK_set_FIFO_threshold(SX127X_t *SX127X, uint8_t FifoThreshold);
 
+/*
+ * LoRa config functions
+ */
+HAL_StatusTypeDef LoRa_set_spreading_factor(SX127X_t* SX127x, uint8_t sf);
+HAL_StatusTypeDef LoRa_set_signal_bandwidth(SX127X_t* SX127x, uint8_t bw);
+HAL_StatusTypeDef LoRa_set_preamble_lenght(SX127X_t* SX127x, uint16_t lenght);
+HAL_StatusTypeDef LoRa_set_sync_word(SX127X_t* SX127x, uint8_t sync_word);
+HAL_StatusTypeDef LoRa_set_coding_rate(SX127X_t* SX127x, uint8_t coding_rate);
+HAL_StatusTypeDef LoRa_set_ocp(SX127X_t* SX127x, uint16_t current_mA);
+HAL_StatusTypeDef LoRa_disable_ocp(SX127X_t* SX127x);
+HAL_StatusTypeDef LoRa_enable_crc(SX127X_t* SX127x);
+HAL_StatusTypeDef LoRa_disable_crc(SX127X_t* SX127x);
+HAL_StatusTypeDef LoRa_explicit_header_mode(SX127X_t* SX127x);
+HAL_StatusTypeDef LoRa_implicit_header_mode(SX127X_t* SX127x);
+HAL_StatusTypeDef LoRa_set_FIFO_base_address(SX127X_t* SX127X, uint8_t RxAddress, uint8_t TxAddress);
 
+// enable/disable invert_iq
+HAL_StatusTypeDef LoRa_set_ldo_flag(SX127X_t* SX127x);
 
+/* SX127x Data */
+HAL_StatusTypeDef LoRa_get_packet_rssi(SX127X_t* SX127x, uint8_t* rssi);
+HAL_StatusTypeDef LoRa_get_packet_snr(SX127X_t* SX127x, float* snr);
+HAL_StatusTypeDef LoRa_get_spreading_factor(SX127X_t* SX127x, uint8_t* sf);
+HAL_StatusTypeDef LoRa_get_raw_signal_bandwidth(SX127X_t* SX127x, uint8_t* raw_sbw);
+HAL_StatusTypeDef LoRa_get_signal_bandwidth(SX127X_t* SX127x, long* sbw);
+HAL_StatusTypeDef LoRa_raw_sbw_to_long(uint8_t raw_sbw, long* sbw);
+// packet_frequency_error
+HAL_StatusTypeDef LoRa_random(SX127X_t* SX127x, uint8_t* random);
+
+/* Packet Transmission */
+HAL_StatusTypeDef LoRa_Transmit(SX127X_t* SX127x, void* packet, uint8_t length);
+HAL_StatusTypeDef LoRa_read_packet(SX127X_t* SX127x, void* packet, uint8_t length, uint8_t *CRC_status);
+
+/* Extras added by third party developers during prototyping :)*/
+HAL_StatusTypeDef LoRa_Is_Rx_Done(SX127X_t* SX127x);
+HAL_StatusTypeDef LoRa_Op_Mode_Check(SX127X_t* SX127x, uint8_t *read_value_location);
+HAL_StatusTypeDef LoRa_DIO_Mapping_Config(SX127X_t* SX127x, uint8_t mode);
+HAL_StatusTypeDef LoRa_Seq_Sandby_Idle(SX127X_t* SX127x);
 
 #endif /* SX127X_H */

@@ -11,6 +11,7 @@
  */
 
 #include "SX127X.h"
+#include "stdio.h"
 
 /*
  * Function defines
@@ -28,6 +29,7 @@
 #define BURST_WRITE(start_addr, pvalues, size)\
 		SPI_burst_write(SX127X->spi_bus, SX127X->ss_gpio_port, SX127X->ss_pin, start_addr, pvalues, size, SX127X_TIMEOUT)
 
+extern UART_HandleTypeDef huart2;
 
 HAL_StatusTypeDef FSK_init(SX127X_t *SX127X) {
 	HAL_StatusTypeDef status = HAL_OK;
@@ -44,6 +46,8 @@ HAL_StatusTypeDef FSK_init(SX127X_t *SX127X) {
 HAL_StatusTypeDef SX127X_Config(SX127X_t *SX127X) {
 	HAL_StatusTypeDef status = HAL_OK;
 
+	// Universal Configs:
+
 	status = SX127X_Reset(SX127X);
 	RETURN_ON_ERROR(status);
 
@@ -53,17 +57,26 @@ HAL_StatusTypeDef SX127X_Config(SX127X_t *SX127X) {
 	status = SX127X_set_modulation(SX127X, SX127X->Current_Modulation);
 	RETURN_ON_ERROR(status);
 
-	/*
-	 * Pobrema, temos que verificar antes de tudo qual é o modo de operação que está sendo utilizado para caso existam
-	 * registradores compartilhados entre o LoRa e o FSK.
-	 */
+	status = SX127X_set_frequency(SX127X, SX127X->Frequency); 
+	RETURN_ON_ERROR(status);
+
+	status = FSK_set_pa_ramp_time(SX127X, SX127X->PaRampTime);
+	RETURN_ON_ERROR(status);
+
+	status = SX127X_set_lna_gain(SX127X, SX127X->LnaGain);
+	RETURN_ON_ERROR(status);
+
+	status = SX127X_set_lna_boost(SX127X, SX127X->LnaBoost);
+	RETURN_ON_ERROR(status);
+
+	status = SX127X_set_pa_output(SX127X, SX127X->PaSelect);
+	RETURN_ON_ERROR(status);
+
+	status = SX127X_set_tx_power(SX127X, SX127X->TxPower);
+	RETURN_ON_ERROR(status);
+
 
 	if(SX127X->Current_Modulation == FSK_Modulation){
-
-		status = SX127X_set_frequency(SX127X, SX127X->FSK_Config.Frequency); // remember to put the LoWFrequencyModeOn bit to its correct position
-		RETURN_ON_ERROR(status);
-
-		// Não tem pq pedir os componentes separados dos bitrates, pede só o bitrate e a função separa oq quiser
 
 		status = FSK_set_freq_deviation(SX127X, SX127X->FSK_Config.FrequencyDeviation, SX127X->FSK_Config.Bitrate); // Bitrate.BitrateValue
 		RETURN_ON_ERROR(status);
@@ -111,9 +124,6 @@ HAL_StatusTypeDef SX127X_Config(SX127X_t *SX127X) {
 		status = FSK_set_data_shaping(SX127X, SX127X->FSK_Config.DataShaping);
 		RETURN_ON_ERROR(status);
 
-		status = FSK_set_pa_ramp_time(SX127X, SX127X->FSK_Config.PaRampTime);
-		RETURN_ON_ERROR(status);
-
 		status = FSK_set_auto_restart_RX(SX127X, SX127X->FSK_Config.AutoRestartRX);
 		RETURN_ON_ERROR(status);
 
@@ -154,31 +164,17 @@ HAL_StatusTypeDef SX127X_Config(SX127X_t *SX127X) {
 		}
 		 */
 
-		status = SX127X_set_lna_gain(SX127X, SX127X->FSK_Config.LnaGain);
-		RETURN_ON_ERROR(status);
-
-		status = SX127X_set_lna_boost(SX127X, SX127X->FSK_Config.LnaBoost);
-		RETURN_ON_ERROR(status);
-
 		status = FSK_set_rssi_offset(SX127X, SX127X->FSK_Config.RssiOffset);
 		RETURN_ON_ERROR(status);
 
 		status = FSK_set_rssi_smoothing(SX127X, SX127X->FSK_Config.RssiSmoothing);
 		RETURN_ON_ERROR(status);
 
-		// TX Config:
-
-		status = SX127X_set_pa_output(SX127X, SX127X->FSK_Config.PaSelect);
-		RETURN_ON_ERROR(status);
-
-		status = SX127X_set_tx_power(SX127X, SX127X->FSK_Config.TxPower);
-		RETURN_ON_ERROR(status);
-
 		// DIO config: (perhaps joining them in a single function that gets which DIO pin we are talking about may be useful)
 		// For that we would need to make all dio functions fit in a  single enum for a single data type
 
 		// For now, I'm reusing the function from the last version:
-		status = FSK_set_DIO_mapping(SX127X, SX127X->FSK_Config.DioMapping1, SX127X->FSK_Config.DioMapping2);
+		status = SX127X_set_DIO_mapping(SX127X, SX127X->DioMapping1, SX127X->DioMapping2);
 		RETURN_ON_ERROR(status);
 
 		/*
@@ -299,7 +295,7 @@ HAL_StatusTypeDef SX127X_set_frequency(SX127X_t *SX127X, long frequency) {
 	RETURN_ON_ERROR(status);
 
 	// Save the value in the radio's struct:
-	if(frequency != SX127X->FSK_Config.Frequency) SX127X->FSK_Config.Frequency = frequency;
+	if(frequency != SX127X->Frequency) SX127X->Frequency = frequency;
 
 	// Now we set the LowFrequencyModeOn bit on the Op Mode register according to the frequency.
 
@@ -346,7 +342,7 @@ HAL_StatusTypeDef FSK_ReadFromFIFO(SX127X_t *SX127X, uint8_t *Packet, uint8_t Le
 }
 
 // WARNING: This function only transmits up to 63 bytes (one extra for the payload length).
-HAL_StatusTypeDef FSK_Transmit(SX127X_t *SX127X, uint8_t PayloadLength, uint8_t *Data) {
+HAL_StatusTypeDef FSK_Transmit(SX127X_t *SX127X, uint8_t *Data, uint8_t PayloadLength) {
 	HAL_StatusTypeDef status = HAL_OK;
 
 	// Put to standby mode
@@ -356,7 +352,7 @@ HAL_StatusTypeDef FSK_Transmit(SX127X_t *SX127X, uint8_t PayloadLength, uint8_t 
 	// level sequencer doesn't scream at us:
 	if(PayloadLength <= 1){
 		status = FSK_set_FIFO_threshold(SX127X, (uint8_t)1)
-		RETURN_ON_ERROR(status);
+						RETURN_ON_ERROR(status);
 	}else{
 		status = FSK_set_FIFO_threshold(SX127X, (uint8_t)(PayloadLength - 1));
 		RETURN_ON_ERROR(status);
@@ -399,7 +395,7 @@ HAL_StatusTypeDef FSK_Transmit(SX127X_t *SX127X, uint8_t PayloadLength, uint8_t 
  *
  */
 
-HAL_StatusTypeDef FSK_BigTransmit(SX127X_t *SX127X, uint8_t PayloadLength, uint8_t *Data) {
+HAL_StatusTypeDef FSK_BigTransmit(SX127X_t *SX127X, uint8_t *Data, uint8_t PayloadLength) {
 	HAL_StatusTypeDef status = HAL_OK;
 	uint8_t currentByte = 0;
 	uint8_t temp = 0;
@@ -411,8 +407,9 @@ HAL_StatusTypeDef FSK_BigTransmit(SX127X_t *SX127X, uint8_t PayloadLength, uint8
 	status = FSK_set_FIFO_threshold(SX127X, (uint8_t)(1));
 	RETURN_ON_ERROR(status);
 
+	//PayloadLength++;
 	// If we are in Variable Packet Length Mode we must put the PayloadLength at the beginning of the FIFO first.
-	if(SX127X->FSK_Config.PacketFormat == VariableLength) 	FSK_WriteToFIFO(SX127X, &PayloadLength, 1);
+	if(SX127X->FSK_Config.PacketFormat == VariableLength) 	FSK_WriteToFIFO(SX127X, &(PayloadLength), 1);
 	else {
 		FSK_WriteToFIFO(SX127X, Data, 1); // Only write one byte for now
 		currentByte = 1;
@@ -429,7 +426,7 @@ HAL_StatusTypeDef FSK_BigTransmit(SX127X_t *SX127X, uint8_t PayloadLength, uint8
 	RETURN_ON_ERROR(status);
 
 	// Transmits the rest of the package
-	while(currentByte <= (PayloadLength-1)){
+	while(currentByte < (PayloadLength)){
 		status = READ_REG(FSK_REG_IRQ_FLAGS2, &temp);
 		if((temp & FSK_IRQ2_FIFO_LEVEL) == 0){ // We have room to put another byte
 			status = WRITE_REG(SX127X_REG_FIFO, Data[currentByte]);
@@ -474,111 +471,110 @@ HAL_StatusTypeDef FSK_PutToRXMODE(SX127X_t *SX127X) {
  * This value is indicated by the first byte of the FIFO in Variable Packet Length mode.
  */
 
-HAL_StatusTypeDef FSK_ReadPacket(SX127X_t *SX127X, uint8_t *Packet, uint8_t MaximumLength ,uint8_t *PacketLength, bool *CRCStatus) {
-	HAL_StatusTypeDef status = HAL_OK;
-	uint8_t read_value;
-	uint8_t *FIFOData;
+HAL_StatusTypeDef FSK_ReadPacket(SX127X_t *SX127X, uint8_t *Packet, uint8_t MaximumLength , uint8_t *PacketLength, bool *CrcError) {
+  HAL_StatusTypeDef status = HAL_OK;
+  uint8_t read_value;
+  uint8_t *FIFOData;
 
-	// This register has to be read BEFORE putting in standby mode!
-	READ_REG(FSK_REG_IRQ_FLAGS2, &read_value);
+  // This register has to be read BEFORE putting in standby mode!
+  READ_REG(FSK_REG_IRQ_FLAGS2, &read_value);
 
-	// Put to STDBY MODE - Insures the FIFO won't be changed by incoming packets.
-	status = SX127X_set_op_mode(SX127X, STANDBY);
+  // Put to STDBY MODE - Insures the FIFO won't be changed by incoming packets.
+  status = SX127X_set_op_mode(SX127X, STANDBY);
 
-	// Verify if the payload is really ready. If not, returns an error.
-	if((read_value & FSK_IRQ2_PAYLOAD_READY) == 0) return HAL_ERROR;
+  // Verify if the payload is really ready. If not, returns an error.
+  if ((read_value & FSK_IRQ2_PAYLOAD_READY) == 0) return HAL_ERROR;
 
-	// Get the CRC Status for the received packet (done before because the flag is cleared after the FIFO is emptied).
-	if((read_value & FSK_IRQ2_CRC_OK) == 0) *CRCStatus = false; // Bad CRC :(
-	else *CRCStatus = true; // Good CRC :)
+  // Get the CRC Status for the received packet (done before because the flag is cleared after the FIFO is emptied).
+  if ((read_value & FSK_IRQ2_CRC_OK) == 0) *CrcError = true; // Bad :(
+  else *CrcError = false; // Good :)
 
-	// Get the number of bytes we are working with - Two options:
-	if(SX127X->FSK_Config.PacketFormat == FixedLength) *PacketLength = SX127X->FSK_Config.PayloadLength; // Configured by the user. Hopefully.
-	else FSK_ReadFromFIFO(SX127X, PacketLength, 1); // The FIFO's first byte contains the received packet length.
+  // Get the number of bytes we are working with - Two options:
+  if (SX127X->FSK_Config.PacketFormat == FixedLength) *PacketLength = SX127X->FSK_Config.PayloadLength; // Configured by the user. Hopefully.
+  else FSK_ReadFromFIFO(SX127X, PacketLength, 1); // The FIFO's first byte contains the received packet length.
 
+  // Using the previously obtained PacketLength we get the remaining bytes:
+  FIFOData = (uint8_t*) malloc(*PacketLength);
+  status = FSK_ReadFromFIFO(SX127X, FIFOData, *PacketLength);
 
-	// Using the previously obtained PacketLength we get the remaining bytes:
-	FIFOData = (uint8_t*) malloc(*PacketLength);
-	status = FSK_ReadFromFIFO(SX127X, FIFOData, *PacketLength);
+  for (int i = 0; ((i < *PacketLength) && (i < MaximumLength)); i++) {
+    *(Packet + i) = FIFOData[i];
+  }
 
-	for (int i = 0;((i < *PacketLength) && (i < MaximumLength)); i++) {
-		*(Packet + i) = FIFOData[i];
-	}
+  free(FIFOData);
 
-	free(FIFOData);
-
-	return status;
+  return status;
 }
 
 
 // DONE - NEED TO TEST.
 /*
- * This function is capable of collecting bytes from the FIFO in real time while the packet is being received.
- * It's purpose is to receive large packets, larger than the 64 bytes of the FIFO, requiring real time collection
- * of the bytes.
- *
- * It should be called after a FIFO Level interrupt, triggered by bytes being received, usually
- * indicated by a DIO interrupt.
- *
- * WARNING: This function is BLOCKING, since it has to watch over every incoming byte. It's operation time is
- * dependent on the data rate of the transmission and the packet length.
- *
- * You can optimize operation by setting the FIFO Threshold closer to 64. That way the first 60 ish bytes will be
- * quickly collected from the FIFO and the function will only have to wait for the remainder bytes to arrive in
- * real time.
- *
- * MaximumLength: The max size of the buffer array pointed by *Packet.
- * Used to avoid writing to forbidden memory positions, that go beyond the size of the buffer array.
- *
- * ReceivedLength: Returns the size of the received packet.
- * This value is indicated by the first byte of the FIFO in Variable Packet Length mode.
- *
- * CRCStatus: returns the CRC Status.
- * If CRC calculation is off this will always return false.
- *
- *
- * Later thoughts:
+   This function is capable of collecting bytes from the FIFO in real time while the packet is being received.
+   It's purpose is to receive large packets, larger than the 64 bytes of the FIFO, requiring real time collection
+   of the bytes.
+
+   It should be called after a FIFO Level interrupt, triggered by bytes being received, usually
+   indicated by a DIO interrupt.
+
+   WARNING: This function is BLOCKING, since it has to watch over every incoming byte. It's operation time is
+   dependent on the data rate of the transmission and the packet length.
+
+   You can optimize operation by setting the FIFO Threshold closer to 64. That way the first 60 ish bytes will be
+   quickly collected from the FIFO and the function will only have to wait for the remainder bytes to arrive in
+   real time.
+
+   MaximumLength: The max size of the buffer array pointed by *Packet.
+   Used to avoid writing to forbidden memory positions, that go beyond the size of the buffer array.
+
+   ReceivedLength: Returns the size of the received packet.
+   This value is indicated by the first byte of the FIFO in Variable Packet Length mode.
+
+   CRCStatus: returns the CRC Status.
+   If CRC calculation is off this will always return false.
+
+
+   Later thoughts:
  * * Dynamic transmit and receive functions only work until the SPI can keep up with the incoming/transmitting data.
- * The highest bitrate I was able to achieve was 76,8 kbps (when receiving packets smaller than 64 bytes with the ReadPacket
- * function). After that the SPI (not overclocked) is not fast enough too feed data into the FIFO, resulting in duplicate
- * bytes in the receiver (the FIFO got emptied and transmitted the last known byte one more time).
- *
+   The highest bitrate I was able to achieve was 76,8 kbps (when receiving packets smaller than 64 bytes with the ReadPacket
+   function). After that the SPI (not overclocked) is not fast enough too feed data into the FIFO, resulting in duplicate
+   bytes in the receiver (the FIFO got emptied and transmitted the last known byte one more time).
+
  * * When using the dynamic receive (ReceivePacket) I was only able to receive up to 12,5 kbps. After that the SPI is not
- * fast enough to remove bytes from the FIFO, resulting in overwritten bytes.
- *
- * In the future I will try to optimize this functions by setting a larger FIFO Threshold and reading the FIFO a smaller
- * amount of times. Also the PayloadReady flag can be used to control the receiving process.
- * (The payload ready flag will be set after the number of bytes indicated by the first byte are received)
- *
- *
- */
+   fast enough to remove bytes from the FIFO, resulting in overwritten bytes.
 
-HAL_StatusTypeDef FSK_ReceivePacket(SX127X_t *SX127X, uint8_t *Packet, uint8_t MaximumLength, uint8_t *PacketLength, bool *CRCStatus) {
-	HAL_StatusTypeDef status = HAL_OK;
-	uint8_t i = 0;
-	uint8_t read_value;
+   In the future I will try to optimize this functions by setting a larger FIFO Threshold and reading the FIFO a smaller
+   amount of times. Also the PayloadReady flag can be used to control the receiving process.
+   (The payload ready flag will be set after the number of bytes indicated by the first byte are received)
 
-	// Get the number of bytes we are working with - Two options:
-	if(SX127X->FSK_Config.PacketFormat == FixedLength) *PacketLength = SX127X->FSK_Config.PayloadLength; // Configured by the user. Hopefully.
-	else FSK_ReadFromFIFO(SX127X, PacketLength, 1); // The FIFO's first byte contains the received packet length.
 
-	// Using the previously obtained PacketLength we get the remaining bytes:
-	while((i < *PacketLength - 1) && (i < MaximumLength)){
-		status = READ_REG(FSK_REG_IRQ_FLAGS2,&read_value); // Read the IRQ registers
+*/
 
-		if((read_value & FSK_IRQ2_FIFO_EMPTY) == 0){ // If there is something in the FIFO
+HAL_StatusTypeDef FSK_ReceivePacket(SX127X_t *SX127X, uint8_t *Packet, uint8_t MaximumLength, uint8_t *PacketLength, bool *CrcError) {
+  HAL_StatusTypeDef status = HAL_OK;
+  uint8_t i = 0;
+  uint8_t read_value;
 
-			// If the entire packet has passed through the packet handler we can get the CRC.
-			if(i == *PacketLength - 1){
-				if((read_value & FSK_IRQ2_CRC_OK) == 0) *CRCStatus = false; // Bad CRC :(
-				else *CRCStatus = true; // Good CRC :)
-			}
+  // Get the number of bytes we are working with - Two options:
+  if (SX127X->FSK_Config.PacketFormat == FixedLength) *PacketLength = SX127X->FSK_Config.PayloadLength; // Configured by the user. Hopefully.
+  else FSK_ReadFromFIFO(SX127X, PacketLength, 1); // The FIFO's first byte contains the received packet length.
 
-			status = FSK_ReadFromFIFO(SX127X, (Packet + i++), 1); // Get one byte from the FIFO
-		}
-	}
+  // Using the previously obtained PacketLength we get the remaining bytes:
+  while ((i < *PacketLength) && (i < MaximumLength)) {
+    status = READ_REG(FSK_REG_IRQ_FLAGS2, &read_value); // Read the IRQ registers
 
-	return status;
+    if ((read_value & FSK_IRQ2_FIFO_EMPTY) == 0) { // If there is something in the FIFO
+
+      // If the entire packet has passed through the packet handler we can get the CRC.
+      if (i == *PacketLength) {
+        if ((read_value & FSK_IRQ2_CRC_OK) == 0) *CrcError = true; // Bad :(
+        else  *CrcError = false; // Good :)
+      }
+
+      status = FSK_ReadFromFIFO(SX127X, (Packet + i++), 1); // Get one byte from the FIFO
+    }
+  }
+
+  return status;
 }
 
 bool FSK_CheckPayloadReady(SX127X_t *SX127X){
@@ -612,7 +608,7 @@ HAL_StatusTypeDef SX127X_set_pa_output(SX127X_t *SX127X, PaSelect_t PaSelect) {
 		status = SX127X_clear_bits(SX127X, SX127X_REG_PA_CONFIG, ~SX127X_PA_SELECT_MASK);
 	}
 
-	SX127X->FSK_Config.PaSelect = PaSelect;
+	SX127X->PaSelect = PaSelect;
 
 	return(status);
 }
@@ -624,7 +620,7 @@ HAL_StatusTypeDef SX127X_set_tx_power(SX127X_t *SX127X, uint8_t TxPower) {
 	uint8_t OutputPower;
 
 	// PaSelect = 1 (PA_BOOST pin, from +2 to +17 dBm)
-	if (SX127X->FSK_Config.PaSelect == PA_BOOST_Pin) {
+	if (SX127X->PaSelect == PA_BOOST_Pin) {
 		// Stupidity protection:
 		if(TxPower < 2)	TxPower = 2;
 		if(TxPower > 17 && TxPower < 20)	TxPower = 17;
@@ -685,7 +681,7 @@ HAL_StatusTypeDef SX127X_set_tx_power(SX127X_t *SX127X, uint8_t TxPower) {
 
 	}
 
-	SX127X->FSK_Config.TxPower = TxPower;
+	SX127X->TxPower = TxPower;
 
 	// Writes Final value on the PaConfig register.
 	return WRITE_REG(SX127X_REG_PA_CONFIG, OutputPower);
@@ -708,6 +704,9 @@ HAL_StatusTypeDef SX127X_set_ocp(SX127X_t *SX127X, uint16_t current_mA) {
 	}
 
 	ocp_val = FSK_OCP_SET(ocp_trim);
+
+	// Saving it into the struct:
+	SX127X->OcpCurrent = current_mA;
 
 	return WRITE_REG(SX127X_REG_OCP, ocp_val);
 }
@@ -1042,7 +1041,7 @@ HAL_StatusTypeDef SX127X_set_lna_gain(SX127X_t *SX127X, LnaGain_t LnaGain){
 	RETURN_ON_ERROR(status);
 
 	// Saving it into the struct:
-	SX127X->FSK_Config.LnaGain = LnaGain;
+	SX127X->LnaGain = LnaGain;
 
 	return(status);
 }
@@ -1057,7 +1056,7 @@ HAL_StatusTypeDef SX127X_set_lna_boost(SX127X_t *SX127X, bool LnaBoost){
 	}
 
 	// Saving it into the struct:
-	SX127X->FSK_Config.LnaBoost = LnaBoost;
+	SX127X->LnaBoost = LnaBoost;
 
 	return(status);
 
@@ -1095,6 +1094,21 @@ HAL_StatusTypeDef FSK_set_rssi_smoothing(SX127X_t *SX127X, RssiSmoothing_t RssiS
 	return(status);
 }
 
+HAL_StatusTypeDef FSK_get_packet_rssi(SX127X_t *SX127X, uint8_t* rssi) {
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t read_value;
+	uint8_t rssi_value;
+
+	status = READ_REG(FSK_REG_RSSI_VALUE, &rssi_value);
+	RETURN_ON_ERROR(status);
+
+	status = READ_REG(FSK_REG_RSSI_CONFIG, &read_value);
+	RETURN_ON_ERROR(status);
+
+	*rssi = (rssi_value - ((read_value & 0b11111000) >> 3))/2;
+
+	return (status);
+}
 
 // Encoding can only be used in Packet Mode!
 HAL_StatusTypeDef FSK_set_encoding(SX127X_t *SX127X, Encoding_t Encoding){
@@ -1139,13 +1153,13 @@ HAL_StatusTypeDef FSK_set_pa_ramp_time(SX127X_t *SX127X, PaRampTime_t PaRampTime
 	RETURN_ON_ERROR(status);
 
 	// Saving it into the struct:
-	SX127X->FSK_Config.PaRampTime = PaRampTime;
+	SX127X->PaRampTime = PaRampTime;
 
 	return(status);
 }
 
 
-HAL_StatusTypeDef FSK_set_DIO_mapping(SX127X_t *SX127X, uint8_t DIOMapping1,
+HAL_StatusTypeDef SX127X_set_DIO_mapping(SX127X_t *SX127X, uint8_t DIOMapping1,
 		uint8_t DIOMapping2) {
 	HAL_StatusTypeDef status = HAL_OK;
 
@@ -1220,4 +1234,412 @@ HAL_StatusTypeDef SX127X_clear_bits(SX127X_t *SX127X, uint8_t Reg, uint8_t Mask)
 }
 
 
+/*
+ * LoRa Functions
+ */
 
+HAL_StatusTypeDef LoRa_set_signal_bandwidth(SX127X_t* SX127X, uint8_t Bandwidth){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t read_value = 0;
+
+	status = READ_REG(LORA_REG_MODEM_CONFIG_1, &read_value);
+	RETURN_ON_ERROR(status);
+
+	read_value = (LoRa_BW_CLR(read_value))|Bandwidth;
+
+	status = WRITE_REG(LORA_REG_MODEM_CONFIG_1, read_value);
+	RETURN_ON_ERROR(status);
+
+	// Saving it into the struct:
+	SX127X->LoRa_Config.Bandwidth = Bandwidth;
+
+	return LoRa_set_ldo_flag(SX127X);
+}
+
+
+// PARTIAL - Need to implement Special Case SF6
+HAL_StatusTypeDef LoRa_set_spreading_factor(SX127X_t* SX127X, uint8_t sf){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t reg_val = 0;
+
+	/* Protects against invalid spreading factor values */
+	if(sf < 6){
+		sf = 6;
+	}
+	else if(sf > 12){
+		sf = 12;
+	}
+
+	/* Special Case: Spreading Factor = 6 (section 4.1.1.2) */
+	if(sf == 6){
+		/* Set header to Implicit Mode */
+		/* Set bits 2-0 of register detection optimize (address 0x31) to value "0b101" */
+		/* Set register detection threshold (address 0x37) to value 0x0C */
+	}
+
+	/* Set sf in Register ModemConfig2 */
+	status = READ_REG(LORA_REG_MODEM_CONFIG_2, &reg_val);
+	RETURN_ON_ERROR(status);
+	reg_val = LoRa_set_SF(reg_val, sf);
+	status = WRITE_REG(LORA_REG_MODEM_CONFIG_2, reg_val);
+	RETURN_ON_ERROR(status);
+
+	return LoRa_set_ldo_flag(SX127X);
+}
+
+HAL_StatusTypeDef LoRa_set_preamble_lenght(SX127X_t* SX127X, uint16_t lenght){
+	HAL_StatusTypeDef status = HAL_OK;
+
+	status = WRITE_REG(LORA_REG_PREAMBLE_LSB, (uint8_t)(lenght));
+	RETURN_ON_ERROR(status);
+	status = WRITE_REG(LORA_REG_PREAMBLE_MSB, (uint8_t)(lenght>>8));
+	return status;
+}
+
+HAL_StatusTypeDef LoRa_set_sync_word(SX127X_t* SX127X, uint8_t sync_word){
+	return WRITE_REG(LORA_REG_SYNC_WORD, sync_word);
+}
+
+// Need to test & protect macros against wrong values
+HAL_StatusTypeDef LoRa_set_coding_rate(SX127X_t* SX127X, uint8_t coding_rate){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t reg_value = 0;
+	status = READ_REG(LORA_REG_MODEM_CONFIG_1, &reg_value);
+	RETURN_ON_ERROR(status);
+	reg_value = LoRa_set_CR(reg_value, coding_rate);
+	status = WRITE_REG(LORA_REG_MODEM_CONFIG_1, reg_value);
+	RETURN_ON_ERROR(status);
+
+	return LoRa_set_ldo_flag(SX127X);
+}
+
+
+HAL_StatusTypeDef LoRa_enable_crc(SX127X_t* SX127X){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t read_value = 0;
+
+	status = READ_REG(LORA_REG_MODEM_CONFIG_2, &read_value);
+	RETURN_ON_ERROR(status);
+	read_value = LoRa_CRC_SET(read_value);
+	status = WRITE_REG(LORA_REG_MODEM_CONFIG_2, read_value);
+	return status;
+}
+
+HAL_StatusTypeDef LoRa_disable_crc(SX127X_t* SX127X){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t read_value = 0;
+
+	status = READ_REG(LORA_REG_MODEM_CONFIG_2, &read_value);
+	RETURN_ON_ERROR(status);
+	read_value = LoRa_CRC_RESET(read_value);
+	status = WRITE_REG(LORA_REG_MODEM_CONFIG_2, read_value);
+	return status;
+}
+
+
+HAL_StatusTypeDef LoRa_explicit_header_mode(SX127X_t* SX127X){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t reg_value = 0;
+
+	status = READ_REG(LORA_REG_MODEM_CONFIG_1, &reg_value);
+	RETURN_ON_ERROR(status);
+	reg_value = LoRa_EXPLICIT(reg_value);
+	status = WRITE_REG(LORA_REG_MODEM_CONFIG_1, reg_value);
+	return status;
+}
+
+HAL_StatusTypeDef LoRa_implicit_header_mode(SX127X_t* SX127X){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t reg_value = 0;
+
+	status = READ_REG(LORA_REG_MODEM_CONFIG_1, &reg_value);
+	RETURN_ON_ERROR(status);
+	reg_value = LoRa_IMPLICIT(reg_value);
+	status = WRITE_REG(LORA_REG_MODEM_CONFIG_1, reg_value);
+	return status;
+}
+
+// DONE - Need to test
+HAL_StatusTypeDef LoRa_set_ldo_flag(SX127X_t* SX127X){
+	HAL_StatusTypeDef status = HAL_OK;
+	long sbw = 0;
+	uint8_t sf = 0;
+	long symbol_duration;
+	uint8_t reg_config3_val = 0;
+
+	/* Read arguments from registers*/
+	status = LoRa_get_signal_bandwidth(SX127X, &sbw);
+	RETURN_ON_ERROR(status);
+	status = LoRa_get_spreading_factor(SX127X, &sf);
+	RETURN_ON_ERROR(status);
+	status = READ_REG(LORA_REG_MODEM_CONFIG_3, &reg_config3_val);
+	RETURN_ON_ERROR(status);
+
+	/* Calculates and sets ldo value */
+	symbol_duration = 1000/(sbw/(1L << sf)) ; // Section 4.1.1.5 and 4.1.1.6
+	if(symbol_duration > 16){
+		reg_config3_val = LoRa_LDO_SET(reg_config3_val);
+	}
+	else{
+		reg_config3_val = LoRa_LDO_RESET(reg_config3_val);
+	}
+
+	return WRITE_REG(LORA_REG_MODEM_CONFIG_3, reg_config3_val);
+}
+
+
+// DONE - Need to test and verify formula
+HAL_StatusTypeDef LoRa_get_packet_rssi(SX127X_t* SX127X, uint8_t* rssi){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t read_value = 0;
+
+	status = READ_REG(LORA_REG_PKT_RSSI_VALUE, &read_value);
+	RETURN_ON_ERROR(status);
+	*rssi = (-1)*(read_value - (SX127X->Frequency < 868E6 ? 164 : 157));
+	return HAL_OK;
+}
+
+// DONE - Need to test and verify formula
+HAL_StatusTypeDef LoRa_get_packet_snr(SX127X_t* SX127X, float* snr){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t read_value = 0;
+
+	status = READ_REG(LORA_REG_PKT_SNR_VALUE, &read_value);
+	RETURN_ON_ERROR(status);
+	*snr = read_value*0.25;
+	return HAL_OK;
+}
+
+// DONE - Need to test
+HAL_StatusTypeDef LoRa_get_spreading_factor(SX127X_t* SX127X, uint8_t* sf){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t read_value = 0;
+
+	status = READ_REG(LORA_REG_MODEM_CONFIG_2, &read_value);
+	RETURN_ON_ERROR(status);
+	*sf = read_value >> 4;
+	return HAL_OK;
+}
+
+// DONE - Need to test
+HAL_StatusTypeDef LoRa_get_raw_signal_bandwidth(SX127X_t* SX127X, uint8_t* raw_sbw){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t read_value = 0;
+
+	status = READ_REG(LORA_REG_MODEM_CONFIG_1, &read_value);
+	RETURN_ON_ERROR(status);
+	*raw_sbw = LoRa_BW_MASK(read_value);
+	return HAL_OK;
+}	
+
+// DONE - Need to test
+HAL_StatusTypeDef LoRa_get_signal_bandwidth(SX127X_t* SX127X, long* sbw){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t raw_sbw = 0;
+
+	status = LoRa_get_raw_signal_bandwidth(SX127X, &raw_sbw);
+	RETURN_ON_ERROR(status);
+	status = LoRa_raw_sbw_to_long(raw_sbw, sbw);
+	return status;
+}
+
+// DONE - Need to test
+HAL_StatusTypeDef LoRa_raw_sbw_to_long(uint8_t raw_sbw, long* sbw){
+	switch(raw_sbw){
+	case LoRa_BW_7_8:
+		*sbw = 7.8E3;
+		return HAL_OK;
+	case LoRa_BW_10_4:
+		*sbw = 10.4E3;
+		return HAL_OK;
+	case LoRa_BW_15_6:
+		*sbw = 15.6E3;
+		return HAL_OK;
+	case LoRa_BW_20_8:
+		*sbw = 20.8E3;
+		return HAL_OK;
+	case LoRa_BW_31_25:
+		*sbw = 31.25E3;
+		return HAL_OK;
+	case LoRa_BW_41_7:
+		*sbw = 41.7E3;
+		return HAL_OK;
+	case LoRa_BW_62_5:
+		*sbw = 62.5E3;
+		return HAL_OK;
+	case LoRa_BW_125:
+		*sbw = 125E3;
+		return HAL_OK;
+	case LoRa_BW_250:
+		*sbw = 250E3;
+		return HAL_OK;
+	case LoRa_BW_500:
+		*sbw = 500E3;
+		return HAL_OK;
+	}
+	return HAL_ERROR;
+}
+
+// DONE - Need to test
+HAL_StatusTypeDef SX127X_random(SX127X_t* SX127X, uint8_t* random){
+	/* RSSI Wideband can be used to generate a random number */
+	return READ_REG(LORA_REG_RSSI_WIDEBAND, random);
+}
+
+
+// DONE - Need to test. Depending on SPI burst read/write
+HAL_StatusTypeDef LoRa_Transmit(SX127X_t* SX127X, void* packet, uint8_t length){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t reg_op_val = 0;
+	uint8_t fifo_addr_ptr = 0;
+	uint8_t read_value = 0;
+
+	/* Verifies if is not transmiting */
+	status = READ_REG(SX127X_REG_OP_MODE, &reg_op_val);
+	RETURN_ON_ERROR(status);
+	reg_op_val = LoRa_get_MODE(reg_op_val);
+	if(reg_op_val != LoRa_MODE_SLEEP && reg_op_val != LoRa_MODE_STANDBY){
+		HAL_UART_Transmit(&huart2, (uint8_t*)"O SX127X nao esta em Sleep ou Standby\n", sizeof("O SX127X nao esta em Sleep ou Standby\n"), HAL_MAX_DELAY);
+		//return HAL_ERROR;
+	}
+
+	/* Set Standby Mode */
+	status = SX127X_set_op_mode(SX127X, LoRa_MODE_STANDBY);
+	if(status != HAL_OK){
+		HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao colocar o SX127X em Standby\n", sizeof("Erro ao colocar o SX127X em Standby\n"), HAL_MAX_DELAY);
+	}
+	RETURN_ON_ERROR(status);
+
+	/* Tx Init */
+	status = READ_REG(LORA_REG_FIFO_TX_BASE_ADDR, &fifo_addr_ptr);
+	if(status != HAL_OK){
+		HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao ler o registrador 'LORA_REG_FIFO_TX_BASE_ADDR'\n", sizeof("Erro ao ler o resgistrador 'LORA_REG_FIFO_TX_BASE_ADDR'\n"), HAL_MAX_DELAY);
+	}
+	RETURN_ON_ERROR(status);
+	status = WRITE_REG(LORA_REG_FIFO_ADDR_PTR, fifo_addr_ptr);
+	if(status != HAL_OK){
+		HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao escrever no registrador 'LORA_REG_FIFO_ADDR_PTR'\n", sizeof("Erro ao escrever no registrador 'LORA_REG_FIFO_ADDR_PTR'\n"), HAL_MAX_DELAY);
+	}
+	RETURN_ON_ERROR(status);
+
+	status = WRITE_REG(LORA_REG_PAYLOAD_LENGTH, length + 1);
+	if(status != HAL_OK){
+		HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao escrever no registrador 'LORA_REG_PAYLOAD_LENGTH'\n", sizeof("Erro ao escrever no registrador 'LORA_REG_PAYLOAD_LENGTH'\n"), HAL_MAX_DELAY);
+	}
+	RETURN_ON_ERROR(status);
+	status = WRITE_REG(SX127X_REG_FIFO, length);
+	if(status != HAL_OK){
+		HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao escrever no registrador 'LORA_REG_FIFO'\n", sizeof("Erro ao escrever no registrador 'LORA_REG_FIFO'\n"), HAL_MAX_DELAY);
+	}
+	RETURN_ON_ERROR(status);
+
+	printf("Write Data FIFO");
+
+	/* Write Data FIFO */
+	for(int i = 0; i <= length; i++){
+		status = WRITE_REG(SX127X_REG_FIFO, (((uint8_t*)packet)[i]));
+		if(status != HAL_OK){
+			HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao escrever no FIFO\n", sizeof("Erro ao escrever no FIFO\n"), HAL_MAX_DELAY);
+		}
+		RETURN_ON_ERROR(status);
+	}
+
+	/* Set Tx Mode */
+	status = WRITE_REG(LORA_REG_IRQ_FLAGS, 0b00001000);
+	RETURN_ON_ERROR(status);
+
+	return SX127X_set_op_mode(SX127X, LoRa_MODE_TX);
+	//	status = LoRa_set_op_mode(SX127X, LoRa_MODE_TX);
+	//	RETURN_ON_ERROR(status);
+	//
+	//	status = LoRa_Op_Mode_Check(SX127X, &read_value);
+	//	UART_print(huart2,"The current operation mode is not TX, it is: %d", read_value);
+	//
+	//	return HAL_OK;
+}
+
+HAL_StatusTypeDef LoRa_ReadPacket(SX127X_t *SX127X, uint8_t *Packet, uint8_t MaximumLength , uint8_t *PacketLength, bool *CRCStatus) {
+  HAL_StatusTypeDef status = HAL_OK;
+  uint8_t *FIFOData;
+  uint8_t reg_op_val, iqr_val, fifo_addr_ptr;
+  uint8_t i;
+
+  /* Verifies if is not transmiting */
+  status = READ_REG(SX127X_REG_OP_MODE, &reg_op_val);
+  RETURN_ON_ERROR(status);
+  reg_op_val = LoRa_get_MODE(reg_op_val);
+  if (reg_op_val == LoRa_MODE_FSTX && reg_op_val == LoRa_MODE_TX ) {
+    //HAL_UART_Transmit(&huart2,(uint8_t*)"\nVerifies if not transmiting\n", 29, HAL_MAX_DELAY);
+    return HAL_ERROR;
+  }
+
+  /* Set Standby Mode */
+  //status = LoRa_set_op_mode(SX127X, LoRa_MODE_STANDBY);
+  //RETURN_ON_ERROR(status);
+
+  /* Set Header Mode */
+  //status = LoRa_explicit_header_mode(SX127X);
+  //RETURN_ON_ERROR(status);
+
+  /* Verifies Received Packet and Consistency */
+  status = READ_REG(LORA_REG_IRQ_FLAGS, &iqr_val);
+  RETURN_ON_ERROR(status);
+  if ((iqr_val & 0b01100000) != 0b01000000) {
+    *CRCStatus = 1;
+  } else {
+    *CRCStatus = 0;
+  }
+
+  // Reset the flags
+  status = WRITE_REG(LORA_REG_IRQ_FLAGS, iqr_val);
+  RETURN_ON_ERROR(status);
+
+  // Packet Length
+  status = READ_REG(LORA_REG_RX_NB_BYTES, PacketLength);
+  RETURN_ON_ERROR(status);
+
+  // Setting the RX FIFO Address
+  status = READ_REG(LORA_REG_FIFO_RX_CURRENT_ADDR, &fifo_addr_ptr);
+  RETURN_ON_ERROR(status);
+  status = WRITE_REG(LORA_REG_FIFO_ADDR_PTR, fifo_addr_ptr);
+  RETURN_ON_ERROR(status);
+
+  // Using the previously obtained PacketLength we get the remaining bytes:
+  FIFOData = (uint8_t*) malloc(*PacketLength);
+  status = FSK_ReadFromFIFO(SX127X, FIFOData, *PacketLength);
+
+  for (int i = 0; ((i < (*PacketLength - 1)) && (i < MaximumLength)); i++) {
+    *(Packet + i) = FIFOData[i+1];
+  }
+
+  free(FIFOData);
+
+  (*PacketLength)--; // It originally also counts the payload length byte.
+
+  status = SX127X_set_op_mode(SX127X, RX);
+  return status;
+}
+
+
+HAL_StatusTypeDef LoRa_Is_Rx_Done(SX127X_t* SX127X){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t iqr_val;
+
+	/* Verifies Received Packet and Consistency */
+	status = READ_REG(LORA_REG_IRQ_FLAGS, &iqr_val);
+	RETURN_ON_ERROR(status);
+	if((iqr_val & 0b01100000) != 0b01000000){
+		return HAL_ERROR;
+	}
+}
+
+HAL_StatusTypeDef LoRa_set_FIFO_base_address (SX127X_t* SX127X, uint8_t RxAddress, uint8_t TxAddress){
+	HAL_StatusTypeDef status = HAL_OK;
+
+	/* Set Base address */
+	status = WRITE_REG(LORA_REG_FIFO_RX_BASE_ADDR, RxAddress);
+	RETURN_ON_ERROR(status);
+
+	status = WRITE_REG(LORA_REG_FIFO_TX_BASE_ADDR, TxAddress);
+	RETURN_ON_ERROR(status);
+}
