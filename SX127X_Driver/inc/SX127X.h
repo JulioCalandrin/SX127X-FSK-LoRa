@@ -883,6 +883,8 @@ HAL_StatusTypeDef LoRa_get_signal_bandwidth(SX127X_t* SX127x, long* sbw);
 HAL_StatusTypeDef LoRa_raw_sbw_to_long(uint8_t raw_sbw, long* sbw);
 // packet_frequency_error
 HAL_StatusTypeDef LoRa_random(SX127X_t* SX127x, uint8_t* random);
+HAL_StatusTypeDef LoRa_enable_low_data_rate_optimization(SX127X_t *SX127X);
+HAL_StatusTypeDef LoRa_disable_low_data_rate_optimization(SX127X_t *SX127X);
 
 /* Packet Transmission */
 HAL_StatusTypeDef LoRa_Transmit(SX127X_t* SX127x, void* packet, uint8_t length);

@@ -36,6 +36,7 @@ I'll turn them into issues later.
 - [ ] Finish the LoRaConfig_t struct.
 - [ ] Go over the entire LoRa library to make it more like the FSK one.
 - [ ] Add Implicit header mode.
+- [ ] Add LowDataRate optimization bit.
 
 * FSK:
 - [ ] Optmize dynamic receive/transmitt functions for higher bitrates.

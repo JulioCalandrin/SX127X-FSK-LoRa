@@ -70,7 +70,7 @@ HAL_StatusTypeDef SPI_burst_write(SPI_HandleTypeDef spi_bus, GPIO_TypeDef* ss_gp
 	HAL_StatusTypeDef status = HAL_OK;
 	uint8_t* sent_data;
 	
-	sent_data = (uint8_t*)malloc(size);
+	sent_data = (uint8_t*)malloc(size+1);
 	sent_data[0] = start_addr | 0x80;
 	for(int i = 0; i < size; i++){
 		sent_data[i+1] = values[i];

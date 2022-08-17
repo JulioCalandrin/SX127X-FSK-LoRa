@@ -1643,3 +1643,34 @@ HAL_StatusTypeDef LoRa_set_FIFO_base_address (SX127X_t* SX127X, uint8_t RxAddres
 	status = WRITE_REG(LORA_REG_FIFO_TX_BASE_ADDR, TxAddress);
 	RETURN_ON_ERROR(status);
 }
+
+HAL_StatusTypeDef LoRa_enable_low_data_rate_optimization(SX127X_t *SX127X){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t read_value;
+
+	status = READ_REG(LORA_REG_MODEM_CONFIG_3, &read_value);
+	RETURN_ON_ERROR(status);
+	status = WRITE_REG(LORA_REG_MODEM_CONFIG_3, ((read_value & 0b11110111) | 0b00001000));
+	RETURN_ON_ERROR(status);
+
+	// Saving it into the struct:
+	//SX127X->LoRa_Config.LowDataRateOptimize = true;
+
+	return(status);
+}
+
+HAL_StatusTypeDef LoRa_disable_low_data_rate_optimization(SX127X_t *SX127X){
+	HAL_StatusTypeDef status = HAL_OK;
+	uint8_t read_value;
+
+	status = READ_REG(LORA_REG_MODEM_CONFIG_3, &read_value);
+	RETURN_ON_ERROR(status);
+	status = WRITE_REG(LORA_REG_MODEM_CONFIG_3, (read_value & 0b11110111));
+	RETURN_ON_ERROR(status);
+
+	// Saving it into the struct:
+	//SX127X->LoRa_Config.LowDataRateOptimize = false;
+
+	return(status);
+}
+
