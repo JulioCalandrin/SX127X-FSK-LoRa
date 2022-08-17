@@ -39,6 +39,7 @@ I'll turn them into issues later.
 - [ ] Create Enable/Disable functions for Auto Restart RX.
 - [ ] Create Enable/Disable functions for LNA Boost.
 - [ ] Remove Magic Numbers from the PreambleDetector config.
+- [ ] The put to RX function locks up if the radio is not working properly. Add timeout.
 
 * OOK:
 - [ ] Add it for some weird reason.
