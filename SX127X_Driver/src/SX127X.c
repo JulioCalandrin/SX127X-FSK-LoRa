@@ -585,6 +585,12 @@ bool FSK_CheckPayloadReady(SX127X_t *SX127X){
 	return((read_value & FSK_IRQ2_PAYLOAD_READY) >> 2);
 }
 
+bool FSK_CheckFIFOEmpty(SX127X_t *SX127X) {	
+	uint8_t read_value;	
+	READ_REG(FSK_REG_IRQ_FLAGS2, &read_value);	
+	return ((read_value & FSK_IRQ2_FIFO_EMPTY) >> 6);	
+}
+
 int FSK_OPModeStatus(SX127X_t *SX127X, uint8_t mode) {
 	uint8_t read_value;
 
@@ -1499,48 +1505,30 @@ HAL_StatusTypeDef LoRa_Transmit(SX127X_t* SX127X, void* packet, uint8_t length){
 	RETURN_ON_ERROR(status);
 	reg_op_val = LoRa_get_MODE(reg_op_val);
 	if(reg_op_val != LoRa_MODE_SLEEP && reg_op_val != LoRa_MODE_STANDBY){
-		HAL_UART_Transmit(&huart2, (uint8_t*)"O SX127X nao esta em Sleep ou Standby\n", sizeof("O SX127X nao esta em Sleep ou Standby\n"), HAL_MAX_DELAY);
+		//HAL_UART_Transmit(&huart2, (uint8_t*)"The radio is not in Sleep or Standby mode\n", sizeof("The radio is not in Sleep or Standby mode\n"), HAL_MAX_DELAY);
 		//return HAL_ERROR;
 	}
 
 	/* Set Standby Mode */
 	status = SX127X_set_op_mode(SX127X, LoRa_MODE_STANDBY);
-	if(status != HAL_OK){
-		HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao colocar o SX127X em Standby\n", sizeof("Erro ao colocar o SX127X em Standby\n"), HAL_MAX_DELAY);
-	}
 	RETURN_ON_ERROR(status);
 
 	/* Tx Init */
 	status = READ_REG(LORA_REG_FIFO_TX_BASE_ADDR, &fifo_addr_ptr);
-	if(status != HAL_OK){
-		HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao ler o registrador 'LORA_REG_FIFO_TX_BASE_ADDR'\n", sizeof("Erro ao ler o resgistrador 'LORA_REG_FIFO_TX_BASE_ADDR'\n"), HAL_MAX_DELAY);
-	}
 	RETURN_ON_ERROR(status);
+
 	status = WRITE_REG(LORA_REG_FIFO_ADDR_PTR, fifo_addr_ptr);
-	if(status != HAL_OK){
-		HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao escrever no registrador 'LORA_REG_FIFO_ADDR_PTR'\n", sizeof("Erro ao escrever no registrador 'LORA_REG_FIFO_ADDR_PTR'\n"), HAL_MAX_DELAY);
-	}
 	RETURN_ON_ERROR(status);
 
 	status = WRITE_REG(LORA_REG_PAYLOAD_LENGTH, length + 1);
-	if(status != HAL_OK){
-		HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao escrever no registrador 'LORA_REG_PAYLOAD_LENGTH'\n", sizeof("Erro ao escrever no registrador 'LORA_REG_PAYLOAD_LENGTH'\n"), HAL_MAX_DELAY);
-	}
-	RETURN_ON_ERROR(status);
-	status = WRITE_REG(SX127X_REG_FIFO, length);
-	if(status != HAL_OK){
-		HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao escrever no registrador 'LORA_REG_FIFO'\n", sizeof("Erro ao escrever no registrador 'LORA_REG_FIFO'\n"), HAL_MAX_DELAY);
-	}
 	RETURN_ON_ERROR(status);
 
-	printf("Write Data FIFO");
+	status = WRITE_REG(SX127X_REG_FIFO, length);
+	RETURN_ON_ERROR(status);
 
 	/* Write Data FIFO */
 	for(int i = 0; i <= length; i++){
 		status = WRITE_REG(SX127X_REG_FIFO, (((uint8_t*)packet)[i]));
-		if(status != HAL_OK){
-			HAL_UART_Transmit(&huart2, (uint8_t*)"Erro ao escrever no FIFO\n", sizeof("Erro ao escrever no FIFO\n"), HAL_MAX_DELAY);
-		}
 		RETURN_ON_ERROR(status);
 	}
 
@@ -1549,13 +1537,6 @@ HAL_StatusTypeDef LoRa_Transmit(SX127X_t* SX127X, void* packet, uint8_t length){
 	RETURN_ON_ERROR(status);
 
 	return SX127X_set_op_mode(SX127X, LoRa_MODE_TX);
-	//	status = LoRa_set_op_mode(SX127X, LoRa_MODE_TX);
-	//	RETURN_ON_ERROR(status);
-	//
-	//	status = LoRa_Op_Mode_Check(SX127X, &read_value);
-	//	UART_print(huart2,"The current operation mode is not TX, it is: %d", read_value);
-	//
-	//	return HAL_OK;
 }
 
 HAL_StatusTypeDef LoRa_ReadPacket(SX127X_t *SX127X, uint8_t *Packet, uint8_t MaximumLength , uint8_t *PacketLength, bool *CRCStatus) {
@@ -1569,7 +1550,7 @@ HAL_StatusTypeDef LoRa_ReadPacket(SX127X_t *SX127X, uint8_t *Packet, uint8_t Max
   RETURN_ON_ERROR(status);
   reg_op_val = LoRa_get_MODE(reg_op_val);
   if (reg_op_val == LoRa_MODE_FSTX && reg_op_val == LoRa_MODE_TX ) {
-    //HAL_UART_Transmit(&huart2,(uint8_t*)"\nVerifies if not transmiting\n", 29, HAL_MAX_DELAY);
+   
     return HAL_ERROR;
   }
 

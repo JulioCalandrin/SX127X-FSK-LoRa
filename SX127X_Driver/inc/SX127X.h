@@ -22,6 +22,7 @@
 #include "STM32_SPI.h"	
 #include "main.h"
 #include <stdlib.h>
+#include <stdbool.h>
 
 /*
  * Mutual register addresses
@@ -382,12 +383,6 @@ typedef struct {
  * 
  */
 
-enum
-{
-	true  = 1,
-	false = 0
-};
-typedef uint8_t bool;
 
 typedef enum
 {
@@ -816,6 +811,7 @@ HAL_StatusTypeDef FSK_ReadFromFIFO(SX127X_t *SX127X, uint8_t *Packet, uint8_t Le
 int FSK_OPModeStatus(SX127X_t *SX127X, uint8_t mode);
 int FSK_IRQFlagStatus(SX127X_t *SX127X, uint8_t Register1or2, uint8_t flag);
 bool FSK_CheckPayloadReady(SX127X_t *SX127X);
+bool FSK_CheckFIFOEmpty(SX127X_t *SX127X);
 
 /*
  * FSK Transmit and Receive function
